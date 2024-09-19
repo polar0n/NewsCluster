@@ -11,3 +11,4 @@ with open('paragraphs.txt', 'w') as f:
     for element in elements_with_class:
         print(element.text)
         f.write(element.text)
+
