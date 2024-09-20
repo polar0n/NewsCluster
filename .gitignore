@@ -1,3 +1,5 @@
 NewsCluster
 article.html
 __pycache__
+nouns/*
+articles/*
