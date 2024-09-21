@@ -1,35 +1,49 @@
 from os import system
+import logging
 import asyncio
 import aiohttp
 import aiofiles
+import aiohttp.client_exceptions
 import nltk
 import json
+from yarl import URL
 from bs4 import BeautifulSoup
 
 
-URLFILENAME = 'urls.txt'
+URLFILENAME = 'diff-urls.txt'
 
-URLS_LENGTH = 1000
+URLS_LENGTH = 28
 
 nltk.download('punkt_tab')
 nltk.download('averaged_perceptron_tagger_eng')
 
 
 class ProcessArticles:
-    def __init__(self, urlfilename:str, save_html:bool=True, skip:int=0, coroutines:int=5):
+    def __init__(self,
+                 urlfilename:str,
+                 url_record_part:int,
+                 save_html:bool=True, 
+                 skip:int=0, 
+                 max_coroutines:int=5, 
+                 log:bool=True):
         self.urlfilename = urlfilename
         self.save_html = save_html
         self.skip = skip
+        self.url_record_part = url_record_part
         self.failures = list()
         self.processing_tasks = set()
         self.writer_tasks = set()
         self.current_url_index = 0
-        self.coroutines = 5
+        self.max_coroutines = max_coroutines
         self.completed = 0
         self.eof = False
         self.end_future = None
         self.http_session = None
         self.urlfile = None
+        if log:
+            logging.basicConfig(filename='app.log', level=logging.INFO,
+                    format='%(asctime)s - %(funcName)s - %(lineno)d - %(levelname)s - %(message)s')
+        logging.info('Initialization of ProcessArticles complete.')
 
 
     async def process_urls(self):
@@ -40,15 +54,17 @@ class ProcessArticles:
 
         self.urlfile = open(self.urlfilename, 'r', encoding='utf-8')
 
+        update_progress(self.completed, URLS_LENGTH)
+
         # Create 5 initial tasks
         for _ in range(self.skip):
             url = self.urlfile.readline()
-            if url == '\n':
+            if url == '':
                 # This should not happen
                 return
-        for _ in range(self.coroutines):
+        for _ in range(self.max_coroutines):
             url = self.urlfile.readline()
-            if url == '\n':
+            if url == '':
                 # This should not happen
                 break
             task = asyncio.create_task(self.process_url(url[:-1]))
@@ -62,16 +78,28 @@ class ProcessArticles:
 
 
     async def process_url(self, url:str):
-        response = await self.http_session.get(url)
+        url = URL(url)
+        try:
+            if self.http_session.closed:
+                return
+            logging.info(f'Accessing {url=}')
+            response = await self.http_session.get(url)
+        except aiohttp.client_exceptions.InvalidUrlClientError as e:
+            logging.warning(f'Cannot access {url=}')
+            return
+        else:
+            logging.info(f'Successfully accessed {url=}')
+
         if response.status != 200:
-            self.failures.append(url)
+            logging.warning(f'Response [{response.status}] for {url=}')
+            self.failures.append([url, f'Response status: [{response.status}]'])
             return
 
         html = await response.text(encoding='utf-8')
         soup = BeautifulSoup(html, 'lxml')
 
         if self.save_html:
-            self.write_file(f'articles/{response.url.parts[-2]}.html', html)
+            self.write_file(f'articles/{url.parts[-self.url_record_part]}.html', html)
 
         paragraphs = str()
         for paragraph in soup.find_all(class_='paragraph'):
@@ -84,7 +112,7 @@ class ProcessArticles:
                 nouns.append(word)
 
         self.write_file(
-            f'nouns/{response.url.parts[-2]}.json',
+            f'nouns/{url.parts[-self.url_record_part]}.json',
             json.dumps(nouns, indent=2)
         )
 
@@ -97,36 +125,41 @@ class ProcessArticles:
 
     async def aio_write(self, filename:str, s:str):
         async with aiofiles.open(filename, 'w', encoding='utf-8') as file:
+            logging.info(f'Writing to file: {filename}')
             await file.write(s)
 
 
     def task_finish(self, finished_task: asyncio.Task):
-        '''Process a finished task.'''
         self.completed += 1
         update_progress(self.completed, URLS_LENGTH)
         # Remove the task from tasks list
         self.processing_tasks.discard(finished_task)
 
-        url = '\n'
+        url = ''
         if not self.eof:
+            # If end of file not reached yet, read a new line
             url = self.urlfile.readline()
 
-        if url == '\n':
+        if url == '':
+            # If the read line is '' then the reader reached the EOF
             self.eof = True
         else:
+            # If EOF not reached then process the url
             task = asyncio.create_task(self.process_url(url[:-1]))
             self.processing_tasks.add(task)
             task.add_done_callback(self.task_finish)
         if self.eof and not self.processing_tasks:
+            # If EOF reached and all the urls were processed then set the result of end_future to stop blocking
+            # the self.process_urls function.
             self.end_future.set_result(True)
-            return
 
 
     async def _close(self):
-        self.urlfile.close()
+        # for task in self.writer_tasks.union(self.processing_tasks):
+        #     task.set_result(True)
         await self.http_session.close()
-        for task in self.writer_tasks.union(self.processing_tasks):
-            task.cancel()
+        await asyncio.sleep(0.250)
+        self.urlfile.close()
 
 
 def update_progress(current: int, total: int, units:int=100):
@@ -145,7 +178,8 @@ async def create_session():
 
 
 try:
-    processor = ProcessArticles('urls.txt')
+    processor = ProcessArticles('diff-urls.txt', 2)
     asyncio.run(processor.process_urls())
 except KeyboardInterrupt:
-    asyncio.get_event_loop().run_until_complete(processor._close())
+    print('Keyboard Interrupt')
+    asyncio.run(processor._close())
