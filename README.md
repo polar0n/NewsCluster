@@ -1,2 +1,2 @@
-# WikiCluster
+# NewsCluster
  

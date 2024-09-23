@@ -1,9 +1,11 @@
 NewsCluster
 article.html
 __pycache__
-nouns/*
+nouns
 articles
+paragraphs
 app.log
 article.html
 script.js
 app.log
+corpus.json
