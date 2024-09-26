@@ -10,6 +10,24 @@ from yarl import URL
 from bs4 import BeautifulSoup
 
 
+CONTRACTION_MAPPING = {
+    "don't": "do not",
+    "can't": "cannot",
+    "won't": "will not",
+    "i'm": "i am",
+    "i've": "i have",
+    "i'll": "i will",
+    "he'll": "he will",
+    "he's": "he is",
+    "she's": "she is",
+    "it's": "it is",
+    "they're": "they are",
+    "they'll": "they will",
+    "we're": "we are",
+    "we'll": "we will",
+    "you're": "you are",
+}
+
 URLFILENAME = 'diff-urls.txt'
 
 URLS_LENGTH = 28
@@ -103,13 +121,25 @@ class ProcessArticles:
 
         paragraphs = str()
         for paragraph in soup.find_all(class_='paragraph'):
-            paragraphs += str(paragraph.text)
+            text = str(paragraph.text).lower()
+            paragraphs += text
 
-        tokens = nltk.tokenize.word_tokenize(paragraphs)
-        nouns = list()
+        tokens = nltk.tokenize.TreebankWordTokenizer().tokenize(text)
+
+        expanded_tokens = tokens
+        for i in range(len(tokens)):
+            if tokens[i] in CONTRACTION_MAPPING.keys():
+                expanded_tokens[i] = CONTRACTION_MAPPING[tokens[i]]
+        tokens = expanded_tokens
+
+        nouns = set()
         for (word, pos) in nltk.pos_tag(tokens):
-            if pos == 'NN' and word.isalpha() and len(word) > 1:
-                nouns.append(word)
+            if pos == 'NN' and word.isalpha() and len(word) > 2:
+                insertion = word
+                if '.' in insertion:
+                    insertion.replace('.', '')
+                nouns.add(word)
+        nouns = list(nouns)
 
         self.write_file(
             f'nouns/{url.parts[-self.url_record_part]}.json',
