@@ -22,9 +22,9 @@ URLS = [
 
 URLS = map(lambda url: URL(url), URLS)
 
-articles = list()
-
 async def main():
+
+    articles = list()
 
     async with aiohttp.ClientSession() as session:
         for url in URLS:

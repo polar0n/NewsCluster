@@ -5,6 +5,8 @@ import aiohttp
 import aiofiles
 import aiohttp.client_exceptions
 import nltk
+from nltk.corpus import stopwords
+# from nltk.corpus import wordnet as wn
 import json
 from yarl import URL
 from bs4 import BeautifulSoup
@@ -28,12 +30,17 @@ CONTRACTION_MAPPING = {
     "you're": "you are",
 }
 
+STOPWORDS = set(stopwords.words('english'))
+
 URLFILENAME = 'diff-urls.txt'
 
 URLS_LENGTH = 28
 
-nltk.download('punkt_tab')
+# nltk.download('punkt_tab')
+nltk.download('universal_tagset')
 nltk.download('averaged_perceptron_tagger_eng')
+nltk.download('stopwords')
+# nltk.download('wordnet')
 
 
 class ProcessArticles:
@@ -130,16 +137,16 @@ class ProcessArticles:
         for i in range(len(tokens)):
             if tokens[i] in CONTRACTION_MAPPING.keys():
                 expanded_tokens[i] = CONTRACTION_MAPPING[tokens[i]]
-        tokens = expanded_tokens
 
-        nouns = set()
+        tokens = [word for word in expanded_tokens if word not in STOPWORDS]
+
+        nouns = list()
         for (word, pos) in nltk.pos_tag(tokens):
             if pos == 'NN' and word.isalpha() and len(word) > 2:
                 insertion = word
                 if '.' in insertion:
                     insertion.replace('.', '')
-                nouns.add(word)
-        nouns = list(nouns)
+                nouns.append(word)
 
         self.write_file(
             f'nouns/{url.parts[-self.url_record_part]}.json',

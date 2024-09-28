@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Star Map with Clusters and Glow</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000; /* Dark background for space */
+        }
+        .star {
+            cursor: pointer;
+        }
+        .edge {
+            stroke: #555;
+            stroke-width: 1px;
+            stroke-opacity: 0.6;
+        }
+        .tooltip {
+            position: absolute;
+            background: #fff;
+            color: #000;
+            padding: 5px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <svg width="100%" height="100%">
+        <!-- Define the glow filter -->
+        <defs>
+            <filter id="glow" height="300%" width="300%" x="-75%" y="-75%">
+                <!-- The blur effect to create a stronger glow -->
+                <feGaussianBlur stdDeviation="10" result="coloredBlur" />
+                <!-- Merge the original element and the blur -->
+                <feMerge>
+                    <feMergeNode in="coloredBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                </feMerge>
+            </filter>
+        </defs>
+    </svg>
+
+    <script>
+        var width = window.innerWidth,
+            height = window.innerHeight;
+
+        var svg = d3.select("svg")
+            .attr("width", width)
+            .attr("height", height)
+            .call(d3.zoom().scaleExtent([0.1, 10]).on("zoom", zoomed))
+            .append("g");
+
+        // Tooltip for star details
+        var tooltip = d3.select("body").append("div")
+            .attr("class", "tooltip")
+            .style("visibility", "hidden");
+
+        // Define the number of clusters
+        var numClusters = 10;
+
+        // Generate stars and assign them to clusters
+        // var stars = Array.from({ length: 3000 }, (v, i) => ({
+        //     id: "Star " + (i + 1),
+        //     x: Math.random() * width * 5, // Spread across a large area
+        //     y: Math.random() * height * 5,
+        //     cluster: Math.floor(Math.random() * numClusters) // Randomly assign a cluster
+        // }));
+        var stars = Array.from({ length: 1000 }, (v, i) => ({
+            id: "Star " + (i + 1),
+            x: width / 2 + (Math.random() - 0.5) * 1000, // Spread across a large area
+            y: height / 2 + (Math.random() - 0.5) * 1000,
+            cluster: Math.floor(Math.random() * numClusters), // Randomly assign a cluster
+            r: 2
+        }));
+
+        stars.unshift({
+            id: 'Cluster Node',
+            x: width / 2,
+            y: height / 2,
+            cluster: 0,
+            r: 20
+        });
+
+        // Define cluster colors
+        var clusterColors = d3.scaleOrdinal(d3.schemeSet3);
+
+        // Generate edges between random stars
+        // var edges = Array.from({ length: 500 }, () => ({
+        //     source: stars[Math.floor(Math.random() * stars.length)],
+        //     target: stars[Math.floor(Math.random() * stars.length)]
+        // }));
+
+        var edges = Array.from({ length: stars.length }, (v, i) => ({
+            source: stars[0],
+            target: stars[i]
+        }));
+
+        var edgeGroup = svg.append("g").attr("class", "edges");
+        var starGroup = svg.append("g").attr("class", "stars");
+
+        // Function to dynamically render nodes based on the current view
+        function renderVisibleNodes(transform) {
+            var scale = transform.k;
+            var translateX = transform.x;
+            var translateY = transform.y;
+            var viewBoxWidth = width / scale;
+            var viewBoxHeight = height / scale;
+
+            // Calculate the current view bounds
+            var xStart = -translateX / scale;
+            var xEnd = xStart + viewBoxWidth;
+            var yStart = -translateY / scale;
+            var yEnd = yStart + viewBoxHeight;
+
+            // Filter visible stars
+            var visibleStars = stars.filter(function(d) {
+                return (d.x >= xStart && d.x <= xEnd && d.y >= yStart && d.y <= yEnd);
+            });
+
+            // Filter visible edges
+            var visibleEdges = edges.filter(function(d) {
+                return (d.source.x >= xStart && d.source.x <= xEnd && d.source.y >= yStart && d.source.y <= yEnd) ||
+                       (d.target.x >= xStart && d.target.x <= xEnd && d.target.y >= yStart && d.target.y <= yEnd);
+            });
+
+            // Update star rendering
+            var starsSelection = starGroup.selectAll("circle")
+                .data(visibleStars, function(d) { return d.id; });
+
+            starsSelection.exit().remove(); // Remove stars that are no longer visible
+
+            starsSelection.enter().append("circle")
+                .attr("class", "star")
+                .attr("r", function(d) { return d.r }) // Star-like points initially
+                .attr("cx", function(d) { return d.x; })
+                .attr("cy", function(d) { return d.y; })
+                .style("fill", function(d) { return clusterColors(d.cluster); }) // Color by cluster
+                // .style("filter", "url(#glow)") // Apply the glow effect
+                .style("filter", function(d) { return d.r == 2 ? null : 'url(#glow)'}) // Apply the glow effect
+                .on("mouseover", function(event, d) {
+                    tooltip.style("visibility", "visible")
+                           .text(d.id + " (Cluster " + d.cluster + ")")
+                           .style("left", (event.pageX + 10) + "px")
+                           .style("top", (event.pageY - 10) + "px");
+                })
+                .on("mouseout", function() {
+                    tooltip.style("visibility", "hidden");
+                });
+
+            // Update edges rendering
+            var edgesSelection = edgeGroup.selectAll("line")
+                .data(visibleEdges, function(d) { return d.source.id + "-" + d.target.id; });
+
+            edgesSelection.exit().remove(); // Remove edges no longer visible
+
+            edgesSelection.enter().append("line")
+                .attr("class", "edge")
+                .attr("x1", function(d) { return d.source.x; })
+                .attr("y1", function(d) { return d.source.y; })
+                .attr("x2", function(d) { return d.target.x; })
+                .attr("y2", function(d) { return d.target.y; })
+                .style("stroke", "#555")
+                .style("stroke-width", 0.1); // Scale the edge width with zoom
+        }
+
+        // Zoom behavior
+        function zoomed(event) {
+            var transform = event.transform;
+            svg.attr("transform", transform);
+            renderVisibleNodes(transform); // Dynamically load visible nodes on zoom
+        }
+
+        // Initial rendering based on the default zoom level
+        renderVisibleNodes(d3.zoomIdentity);
+
+        // Function to update edge styles dynamically (trigger via UI or keys)
+        function updateEdges(color, width) {
+            edgeGroup.selectAll("line")
+                .style("stroke", color)
+                .style("stroke-width", width);
+        }
+
+        // Example: Keypress event to update edges (or trigger via buttons)
+        document.addEventListener("keydown", function(event) {
+            if (event.key === "1") {
+                updateEdges("#ff0000", 2); // Change edges to red, thicker
+            } else if (event.key === "2") {
+                updateEdges("#00ff00", 1); // Change edges to green, thinner
+            }
+        });
+    </script>
+</body>
+</html>
