@@ -5,14 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Star Map with Clusters and Glow</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="clusters.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
             overflow: hidden;
-            background-color: #000; /* Dark background for space */
+            background-color: #181622; /* Dark background for space */
         }
+        
         .star {
             cursor: pointer;
         }
@@ -46,10 +48,372 @@
             </filter>
         </defs>
     </svg>
-
-    <script>
+    <script>        
         var width = window.innerWidth,
             height = window.innerHeight;
+
+        var stars = [
+            {
+                id: 'News Cluster',
+                x: width / 2,
+                y: height / 2,
+                cluster: 0,
+                r: 10,
+                html: '<b>News Cluster</b><br>3000 CNN articles clustered by their word frequency.'
+            },
+            {
+                id: 'Cluster 1',
+                x: width / 2 + 1800,
+                y: height / 2 + 100,
+                cluster: 1,
+                r: 40,
+                html: 'Cluster 1'
+            },
+            {
+                id: 'Cluster 2',
+                x: width / 2 + 100,
+                y: height / 2 + 1500,
+                cluster: 2,
+                r: 20,
+                html: 'Cluster 2'
+            },
+            {
+                id: 'Cluster 3',
+                x: width / 2 + 100,
+                y: height / 2 - 1400,
+                cluster: 3,
+                r: 20,
+                html: 'Cluster 3'
+            },
+            {
+                id: 'Cluster 4',
+                x: width / 2 - 1300,
+                y: height / 2 - 800,
+                cluster: 4,
+                r: 20,
+                html: 'Cluster 4'
+            },
+            {
+                id: 'Cluster 5',
+                x: width / 2 - 1300,
+                y: height / 2 + 500,
+                cluster: 5,
+                r: 20,
+                html: 'Cluster 5'
+            },
+            {
+                id: 'Cluster 6',
+                x: width / 2 - 500,
+                y: height / 2 + 2200,
+                cluster: 6,
+                r: 20,
+                html: 'Cluster 6'
+            },
+            // Sub clusters
+            {
+                id: 'Sub Cluster 1 (Cluster 1)',
+                x: width / 2 + 1800,
+                y: height / 2 + 700,
+                cluster: 7,
+                r: 15,
+                html: 'Sub Cluster 1 (Cluster 1)'
+            },
+            {
+                id: 'Sub Cluster 2 (Cluster 1)',
+                x: width / 2 + 1800,
+                y: height / 2 - 700,
+                cluster: 8,
+                r: 15,
+                html: 'Sub Cluster 2 (Cluster 1)'
+            },
+            {
+                id: 'Sub Cluster 3 (Cluster 1)',
+                x: width / 2 + 2300,
+                y: height / 2 + 1500,
+                cluster: 9,
+                r: 15,
+                html: 'Sub Cluster 3 (Cluster 1)'
+            },
+            {
+                id: 'Sub Cluster 4 (Cluster 1)',
+                x: width / 2 + 1000,
+                y: height / 2 + 300,
+                cluster: 10,
+                r: 15,
+                html: 'Sub Cluster 4 (Cluster 1)'
+            },
+            {
+                id: 'Sub Cluster 5 (Cluster 1)',
+                x: width / 2 + 2600,
+                y: height / 2 + 100,
+                cluster: 11,
+                r: 15,
+                html: 'Sub Cluster 5 (Cluster 1)'
+            },
+            {
+                id: 'Sub Cluster 6 (Cluster 1)',
+                x: width / 2 + 2800,
+                y: height / 2 + 1000,
+                cluster: 12,
+                r: 15,
+                html: 'Sub Cluster 6 (Cluster 1)'
+            }
+        ];
+
+        var edges = [
+            {
+                source: stars[0],
+                target: stars[1],
+                w: 1.2
+            },
+            {
+                source: stars[0],
+                target: stars[2],
+                w: 1.2
+            },
+            {
+                source: stars[0],
+                target: stars[3],
+                w: 1.2
+            },
+            {
+                source: stars[0],
+                target: stars[4],
+                w: 1.2
+            },
+            {
+                source: stars[0],
+                target: stars[5],
+                w: 1.2
+            },
+            {
+                source: stars[0],
+                target: stars[6],
+                w: 1.2
+            },
+            // sub clusters
+            {
+                source: stars[1],
+                target: stars[7],
+                w: 1
+            },
+            {
+                source: stars[1],
+                target: stars[8],
+                w: 1
+            },
+            {
+                source: stars[1],
+                target: stars[9],
+                w: 1
+            },
+            {
+                source: stars[1],
+                target: stars[10],
+                w: 1
+            },
+            {
+                source: stars[1],
+                target: stars[11],
+                w: 1
+            },
+            {
+                source: stars[1],
+                target: stars[12],
+                w: 1
+            }
+        ];
+
+        // cluster1.forEach(element => {
+        //     theta = Math.random() * 2 * Math.PI;
+        //     element.x = stars[1].x + Math.cos(theta) * element.dist * 20;
+        //     element.y = stars[1].y + Math.sin(theta) * element.dist * 20;
+        //     element.cluster = 1;
+        //     element.r = 2;
+        //     stars.push(element);
+        //     edges.push({
+        //         source: stars[1],
+        //         target: element
+        //     });
+        // });
+
+        var genTooltip = (d) => {
+            return "<i><b>" + d.id + "</b></i><br><br>Words:<br> &#9679;" + d.words.join("</br> &#9679;");
+        };
+
+        cluster2.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[2].x + Math.cos(theta) * element.dist * 10;
+            element.y = stars[2].y + Math.sin(theta) * element.dist * 10;
+            element.cluster = 2;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[2],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        cluster3.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[3].x + Math.cos(theta) * element.dist * 10;
+            element.y = stars[3].y + Math.sin(theta) * element.dist * 10;
+            element.cluster = 3;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[3],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        cluster4.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[4].x + Math.cos(theta) * element.dist * 10;
+            element.y = stars[4].y + Math.sin(theta) * element.dist * 10;
+            element.cluster = 4;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[4],
+                target: element,
+                w: 0.5
+            });
+        })
+
+        cluster5.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[5].x + Math.cos(theta) * element.dist * 10;
+            element.y = stars[5].y + Math.sin(theta) * element.dist * 10;
+            element.cluster = 5;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[5],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        cluster6.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[6].x + Math.cos(theta) * element.dist * 10;
+            element.y = stars[6].y + Math.sin(theta) * element.dist * 10;
+            element.cluster = 6;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[6],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        sub_cluster1.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[7].x + Math.cos(theta) * element.dist * 20;
+            element.y = stars[7].y + Math.sin(theta) * element.dist * 20;
+            element.cluster = 7;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[7],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        sub_cluster2.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[8].x + Math.cos(theta) * element.dist * 10;
+            element.y = stars[8].y + Math.sin(theta) * element.dist * 10;
+            element.cluster = 8;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[8],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        sub_cluster3.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[9].x + Math.cos(theta) * element.dist * 10;
+            element.y = stars[9].y + Math.sin(theta) * element.dist * 10;
+            element.cluster = 9;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[9],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        sub_cluster4.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[10].x + Math.cos(theta) * element.dist * 10;
+            element.y = stars[10].y + Math.sin(theta) * element.dist * 10;
+            element.cluster = 10;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[10],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        sub_cluster5.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[11].x + Math.cos(theta) * element.dist * 15;
+            element.y = stars[11].y + Math.sin(theta) * element.dist * 15;
+            element.cluster = 11;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[11],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        sub_cluster6.forEach(element => {
+            theta = Math.random() * 2 * Math.PI;
+            element.x = stars[12].x + Math.cos(theta) * element.dist * 10;
+            element.y = stars[12].y + Math.sin(theta) * element.dist * 10;
+            element.cluster = 12;
+            element.r = 2;
+            element.html = genTooltip(element);
+            stars.push(element);
+            edges.push({
+                source: stars[12],
+                target: element,
+                w: 0.5
+            });
+        });
+
+        stars.push({
+            id: 'News Cluster',
+            x: width / 2,
+            y: height / 2,
+            cluster: 0,
+            r: 9,
+            html: '<b>News Cluster</b><br>3000 CNN articles clustered by their word frequency.'
+        })
 
         var svg = d3.select("svg")
             .attr("width", width)
@@ -66,27 +430,13 @@
         var numClusters = 10;
 
         // Generate stars and assign them to clusters
-        // var stars = Array.from({ length: 3000 }, (v, i) => ({
+        // var stars = Array.from({ length: 1000 }, (v, i) => ({
         //     id: "Star " + (i + 1),
-        //     x: Math.random() * width * 5, // Spread across a large area
-        //     y: Math.random() * height * 5,
-        //     cluster: Math.floor(Math.random() * numClusters) // Randomly assign a cluster
+        //     x: width / 2 + (Math.random() - 0.5) * 1000, // Spread across a large area
+        //     y: height / 2 + (Math.random() - 0.5) * 1000,
+        //     cluster: Math.floor(Math.random() * numClusters), // Randomly assign a cluster
+        //     r: 2
         // }));
-        var stars = Array.from({ length: 1000 }, (v, i) => ({
-            id: "Star " + (i + 1),
-            x: width / 2 + (Math.random() - 0.5) * 1000, // Spread across a large area
-            y: height / 2 + (Math.random() - 0.5) * 1000,
-            cluster: Math.floor(Math.random() * numClusters), // Randomly assign a cluster
-            r: 2
-        }));
-
-        stars.unshift({
-            id: 'Cluster Node',
-            x: width / 2,
-            y: height / 2,
-            cluster: 0,
-            r: 20
-        });
 
         // Define cluster colors
         var clusterColors = d3.scaleOrdinal(d3.schemeSet3);
@@ -97,10 +447,11 @@
         //     target: stars[Math.floor(Math.random() * stars.length)]
         // }));
 
-        var edges = Array.from({ length: stars.length }, (v, i) => ({
-            source: stars[0],
-            target: stars[i]
-        }));
+
+        // var edges = Array.from({ length: stars.length }, (v, i) => ({
+        //     source: stars[1],
+        //     target: stars[i]
+        // }));
 
         var edgeGroup = svg.append("g").attr("class", "edges");
         var starGroup = svg.append("g").attr("class", "stars");
@@ -130,6 +481,11 @@
                        (d.target.x >= xStart && d.target.x <= xEnd && d.target.y >= yStart && d.target.y <= yEnd);
             });
 
+            // var tooltip = (d) => {
+            //     let s = 
+            //     return d.id.slice(end=10) + "<br> Words: <br>" + d.words.join
+            // };
+
             // Update star rendering
             var starsSelection = starGroup.selectAll("circle")
                 .data(visibleStars, function(d) { return d.id; });
@@ -146,12 +502,20 @@
                 .style("filter", function(d) { return d.r == 2 ? null : 'url(#glow)'}) // Apply the glow effect
                 .on("mouseover", function(event, d) {
                     tooltip.style("visibility", "visible")
-                           .text(d.id + " (Cluster " + d.cluster + ")")
+                        //    .html("<i><b>" + d.id + "</b></i><br><br>Words:<br> &#9679;" + d.words.join("</br> &#9679;"))
+                           .html(d.html)
+                           .style("font-family", "Verdana, Helvetica, sans-serif")
+                           .style("font-size", "14px")
+                           .style("color", "white")
+                           .style("background-color", "#1B1B1B")
                            .style("left", (event.pageX + 10) + "px")
                            .style("top", (event.pageY - 10) + "px");
                 })
                 .on("mouseout", function() {
                     tooltip.style("visibility", "hidden");
+                })
+                .on("click", function(event, d) {
+                    window.open(d.url, "_blank");
                 });
 
             // Update edges rendering
@@ -167,7 +531,7 @@
                 .attr("x2", function(d) { return d.target.x; })
                 .attr("y2", function(d) { return d.target.y; })
                 .style("stroke", "#555")
-                .style("stroke-width", 0.1); // Scale the edge width with zoom
+                .style("stroke-width", function(d) { return d.w; }); // Scale the edge width with zoom
         }
 
         // Zoom behavior
@@ -185,6 +549,23 @@
             edgeGroup.selectAll("line")
                 .style("stroke", color)
                 .style("stroke-width", width);
+        }
+
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
         }
 
         // Example: Keypress event to update edges (or trigger via buttons)
