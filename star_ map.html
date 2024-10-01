@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Star Map with Clusters and Glow</title>
+    <title>News Cluster</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="clusters.js"></script>
     <style>
@@ -406,15 +406,6 @@
             });
         });
 
-        stars.push({
-            id: 'News Cluster',
-            x: width / 2,
-            y: height / 2,
-            cluster: 0,
-            r: 9,
-            html: '<b>News Cluster</b><br>3000 CNN articles clustered by their word frequency.'
-        })
-
         var svg = d3.select("svg")
             .attr("width", width)
             .attr("height", height)
@@ -515,7 +506,7 @@
                     tooltip.style("visibility", "hidden");
                 })
                 .on("click", function(event, d) {
-                    window.open(d.url, "_blank");
+                    if (d.url) { window.open(d.url, "_blank"); };
                 });
 
             // Update edges rendering
@@ -551,27 +542,10 @@
                 .style("stroke-width", width);
         }
 
-        function dragstarted(event, d) {
-            if (!event.active) simulation.alphaTarget(0.3).restart();
-            d.fx = d.x;
-            d.fy = d.y;
-        }
-
-        function dragged(event, d) {
-            d.fx = event.x;
-            d.fy = event.y;
-        }
-
-        function dragended(event, d) {
-            if (!event.active) simulation.alphaTarget(0);
-            d.fx = null;
-            d.fy = null;
-        }
-
         // Example: Keypress event to update edges (or trigger via buttons)
         document.addEventListener("keydown", function(event) {
             if (event.key === "1") {
-                updateEdges("#ff0000", 2); // Change edges to red, thicker
+                updateEdges("#ff0000", 0); // Change edges to red, thicker
             } else if (event.key === "2") {
                 updateEdges("#00ff00", 1); // Change edges to green, thinner
             }
